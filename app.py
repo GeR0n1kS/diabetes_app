@@ -222,9 +222,9 @@ class DiabetesApp:
             'features': 'Важность признаков',
             'calibration': 'Калибровка',
             'threshold': 'Оптимальный порог',
-            'prediction': 'Прогноз пациента',
             'results': 'Результаты',
-            'metrics': 'Сравнение моделей'
+            'metrics': 'Сравнение моделей',
+            'prediction': 'Прогноз пациента',
         }
         
         for tab_key, tab_name in tab_names.items():
