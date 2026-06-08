@@ -25,7 +25,7 @@ class DiabetesApp:
     def __init__(self, root):
         self.root = root
         self.root.title("🏥 Система прогнозирования риска диабета v2.0")
-        self.root.geometry("1400x850")
+        self.root.geometry("1400x1000")
         self.root.configure(bg='#f0f0f0')
         
         # Инициализация модулей
@@ -693,71 +693,178 @@ class DiabetesApp:
                 messagebox.showerror("Ошибка", f"Не удалось экспортировать: {str(e)}")                
 
     def init_prediction_tab(self):
-        # Создание вкладки с полями для ввода данных пациента
+        """Вкладка для ручного ввода данных пациента и получения прогноза"""
         frame = self.tabs['prediction']
         
         # Заголовок
-        tk.Label(frame, text="🔮 ПРОГНОЗ РИСКА ДИАБЕТА ДЛЯ ПАЦИЕНТА", 
-                font=('Arial', 16, 'bold')).pack(pady=15)
+        tk.Label(
+            frame, 
+            text="ПРОГНОЗ РИСКА ДИАБЕТА ДЛЯ ПАЦИЕНТА", 
+            font=('Arial', 16, 'bold'),
+            fg='#2c3e50'
+        ).pack(pady=15)
         
-        # Основные рамки
+        tk.Label(
+            frame,
+            text="Введите клинические показатели пациента для оценки риска развития диабета 2 типа",
+            font=('Arial', 10),
+            fg='#7f8c8d'
+        ).pack(pady=(0, 20))
+        
+        # Основная рамка (две колонки)
         main_frame = tk.Frame(frame)
-        main_frame.pack(fill='both', expand=True, padx=20)
+        main_frame.pack(fill='both', expand=True, padx=30, pady=10)
         
-        left_frame = tk.LabelFrame(main_frame, text="Клинические параметры")
-        left_frame.pack(side='left', fill='both', expand=True)
+        # ЛЕВАЯ КОЛОНКА - поля ввода
+        left_frame = tk.LabelFrame(main_frame, text="Клинические параметры пациента", font=('Arial', 12, 'bold'))
+        left_frame.pack(side='left', fill='both', expand=True, padx=10, pady=10)
         
-        right_frame = tk.LabelFrame(main_frame, text="Результат прогнозирования")
-        right_frame.pack(side='right', fill='both', expand=True)
+        # ПРАВАЯ КОЛОНКА - результат прогноза
+        right_frame = tk.LabelFrame(main_frame, text="Результат прогнозирования", font=('Arial', 12, 'bold'))
+        right_frame.pack(side='right', fill='both', expand=True, padx=10, pady=10)
         
-        # СЛОВАРЬ ДЛЯ ХРАНЕНИЯ ПОЛЕЙ ВВОДА
+        # ============================================
+        # ЛЕВАЯ КОЛОНКА: ПОЛЯ ВВОДА С ПОЯСНЕНИЯМИ
+        # ============================================
+        
+        # Словарь для хранения переменных ввода
         self.prediction_vars = {}
         
-        # Признаки
-        features = [
-            ('Pregnancies', 'Количество беременностей'),
-            ('Glucose', 'Уровень глюкозы (мг/дл)'),
-            ('BloodPressure', 'Диастолическое давление (мм рт.ст.)'),
-            ('SkinThickness', 'Толщина кожной складки (мм)'),
-            ('Insulin', 'Уровень инсулина (мкЕд/мл)'),
-            ('BMI', 'Индекс массы тела (кг/м²)'),
-            ('DiabetesPedigreeFunction', 'Наследственность (DPF)'),
-            ('Age', 'Возраст (лет)')
+        # Данные о признаках: ключ, название, единица измерения, норма, подробное пояснение
+        features_info = [
+            ('Pregnancies', 'Количество беременностей', 'кол-во', '0-5', 
+            'Пояснение: количество предыдущих беременностей у пациентки. Беременность увеличивает нагрузку на поджелудочную железу. Более 5 беременностей считается фактором риска.'),
+            
+            ('Glucose', 'Уровень глюкозы', 'мг/дл', '70-99', 
+            'Пояснение: концентрация глюкозы в плазме крови через 2 часа после еды. Норма: 70-99 мг/дл. 100-125 - преддиабет, 126 и выше - диабет.'),
+            
+            ('BloodPressure', 'Диастолическое давление', 'мм рт.ст.', '60-80', 
+            'Пояснение: нижнее давление (в момент расслабления сердца). Норма: 60-80 мм рт.ст. Повышение давления (90+) увеличивает риск диабета.'),
+            
+            ('SkinThickness', 'Толщина кожной складки', 'мм', '10-30', 
+            'Пояснение: толщина кожной складки в области трицепса. Показатель подкожного жира. Норма: 10-30 мм. Высокие значения указывают на ожирение.'),
+            
+            ('Insulin', 'Уровень инсулина', 'мкЕд/мл', '16-180', 
+            'Пояснение: уровень инсулина в сыворотке крови через 2 часа после нагрузки. Норма: 16-180 мкЕд/мл. Отклонения могут указывать на инсулинорезистентность.'),
+            
+            ('BMI', 'Индекс массы тела', 'кг/м²', '18.5-25', 
+            'Пояснение: ИМТ = вес(кг) / рост²(м²). 18.5-25 - норма, 25-30 - избыточный вес, 30+ - ожирение. Ожирение - главный фактор риска диабета.'),
+            
+            ('DiabetesPedigreeFunction', 'Наследственность (DPF)', '', '0-0.5', 
+            'Пояснение: коэффициент наследственной предрасположенности. 0 - нет родственников с диабетом, 0.5 - один близкий родственник, 1.0+ - сильная наследственность.'),
+            
+            ('Age', 'Возраст', 'лет', '20-60', 
+            'Пояснение: возраст пациента. Риск развития диабета 2 типа значительно возрастает после 45 лет. Чем старше пациент, тем выше риск.')
         ]
         
-        # СОЗДАНИЕ ПОЛЕЙ ВВОДА
-        for key, label in features:
-            row_frame = tk.Frame(left_frame)
-            row_frame.pack(fill='x', pady=5, padx=10)
+        # Создание полей ввода
+        for key, label, unit, norm, explanation in features_info:
+            # Рамка для одного параметра
+            param_frame = tk.Frame(left_frame, relief='groove', bd=1)
+            param_frame.pack(fill='x', pady=5, padx=6)
             
-            tk.Label(row_frame, text=label, width=30, anchor='w').pack(side='left')
+            # Верхняя строка: название, поле ввода, норма
+            top_frame = tk.Frame(param_frame)
+            top_frame.pack(fill='x', padx=5, pady=5)
             
+            # Название поля с единицей измерения
+            label_text = f"{label} ({unit})" if unit else label
+            tk.Label(top_frame, text=label_text, width=35, anchor='w', font=('Arial', 10, 'bold')).pack(side='left')
+            
+            # Поле ввода
             var = tk.StringVar()
-            tk.Entry(row_frame, textvariable=var, width=15).pack(side='left', padx=10)
+            entry = tk.Entry(top_frame, textvariable=var, width=12, font=('Arial', 10))
+            entry.pack(side='left', padx=15)
             
+            # Метка с нормой
+            tk.Label(top_frame, text=f"норма: {norm}", fg='green', font=('Arial', 9)).pack(side='left', padx=5)
+            
+            # Сохраняем переменную
             self.prediction_vars[key] = var
+            
+            # Нижняя строка: пояснение (серым цветом)
+            bottom_frame = tk.Frame(param_frame)
+            bottom_frame.pack(fill='x', padx=5, pady=(0, 5))
+            
+            tk.Label(bottom_frame, text=explanation, fg='gray', font=('Arial', 8), anchor='w', wraplength=350, justify='left').pack(fill='x')
         
-        # МЕТКИ ДЛЯ ОТОБРАЖЕНИЯ РЕЗУЛЬТАТА
-        tk.Label(right_frame, text="Вероятность диабета:", font=('Arial', 12)).pack(pady=(20,5))
-        self.prob_label = tk.Label(right_frame, text="---", font=('Arial', 24, 'bold'))
+        # Кнопка очистки всех полей
+        def clear_fields():
+            for var in self.prediction_vars.values():
+                var.set("")
+            # Очистить результаты прогноза
+            self.prob_label.config(text="---")
+            self.pred_label.config(text="---")
+            self.risk_label.config(text="---")
+            self.recommend_label.config(text="Заполните данные пациента и нажмите 'Выполнить прогноз'")
+            self.recommend_label.config(fg='#7f8c8d')
+        
+        tk.Button(
+            left_frame, 
+            text="Очистить все поля", 
+            command=clear_fields,
+            bg='#95a5a6', 
+            fg='white',
+            font=('Arial', 10),
+            width=20
+        ).pack(pady=15)
+        
+        # ============================================
+        # ПРАВАЯ КОЛОНКА: РЕЗУЛЬТАТЫ ПРОГНОЗА
+        # ============================================
+        
+        # Рамка для отображения результата
+        result_frame = tk.Frame(right_frame, bg='#ecf0f1', relief='groove', bd=2)
+        result_frame.pack(fill='both', expand=True, padx=15, pady=15)
+        
+        # Метка для вероятности
+        tk.Label(result_frame, text="Вероятность диабета:", font=('Arial', 12), bg='#ecf0f1').pack(pady=(20, 5))
+        self.prob_label = tk.Label(result_frame, text="---", font=('Arial', 28, 'bold'), fg='#2c3e50', bg='#ecf0f1')
         self.prob_label.pack()
         
-        tk.Label(right_frame, text="Предсказание:", font=('Arial', 12)).pack(pady=(15,5))
-        self.pred_label = tk.Label(right_frame, text="---", font=('Arial', 18, 'bold'))
+        # Метка для предсказания
+        tk.Label(result_frame, text="Предсказание:", font=('Arial', 12), bg='#ecf0f1').pack(pady=(15, 5))
+        self.pred_label = tk.Label(result_frame, text="---", font=('Arial', 18, 'bold'), bg='#ecf0f1')
         self.pred_label.pack()
         
-        tk.Label(right_frame, text="Уровень риска:", font=('Arial', 12)).pack(pady=(15,5))
-        self.risk_label = tk.Label(right_frame, text="---", font=('Arial', 14, 'bold'))
+        # Метка для уровня риска
+        tk.Label(result_frame, text="Уровень риска:", font=('Arial', 12), bg='#ecf0f1').pack(pady=(15, 5))
+        self.risk_label = tk.Label(result_frame, text="---", font=('Arial', 14, 'bold'), bg='#ecf0f1')
         self.risk_label.pack()
         
-        tk.Label(right_frame, text="Рекомендации:", font=('Arial', 12, 'bold')).pack(pady=(20,5))
-        self.recommend_label = tk.Label(right_frame, text="---", wraplength=350, font=('Arial', 10))
-        self.recommend_label.pack()
+        # Рекомендации
+        tk.Label(result_frame, text="Рекомендации:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(pady=(20, 5))
+        self.recommend_label = tk.Label(
+            result_frame, 
+            text="Заполните данные пациента и нажмите 'Выполнить прогноз'", 
+            font=('Arial', 10),
+            wraplength=350,
+            fg='#7f8c8d',
+            bg='#ecf0f1'
+        )
+        self.recommend_label.pack(pady=10)
         
-        # КНОПКА ПРОГНОЗА
-        tk.Button(right_frame, text="🔮 ВЫПОЛНИТЬ ПРОГНОЗ", 
-                command=self.predict_single_patient,
-                bg='#27ae60', fg='white', font=('Arial', 12, 'bold')).pack(pady=20, fill='x')
+        # Кнопка прогноза
+        tk.Button(
+            right_frame,
+            text="ВЫПОЛНИТЬ ПРОГНОЗ",
+            command=self.predict_single_patient,
+            bg='#27ae60',
+            fg='white',
+            font=('Arial', 12, 'bold'),
+            height=2,
+            width=25
+        ).pack(pady=20, fill='x', padx=15)
+        
+        # Информация об используемой модели и пороге
+        self.model_info_label = tk.Label(
+            right_frame,
+            text="Модель будет выбрана после обучения | Порог: 0.35 (медицинский)",
+            font=('Arial', 9),
+            fg='#7f8c8d'
+        )
+        self.model_info_label.pack(pady=5)
+
     def predict_single_patient(self):
         # Обработчик нажатия кнопки прогноза
         
