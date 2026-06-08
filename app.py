@@ -222,6 +222,7 @@ class DiabetesApp:
             'features': 'Важность признаков',
             'calibration': 'Калибровка',
             'threshold': 'Оптимальный порог',
+            'prediction': 'Прогноз пациента',
             'results': 'Результаты',
             'metrics': 'Сравнение моделей'
         }
@@ -233,7 +234,8 @@ class DiabetesApp:
             
         self.init_data_tab()
         self.init_results_tab()
-        
+        self.init_prediction_tab()
+
     def init_data_tab(self):
         # Инициализация вкладки с данными
         frame = self.tabs['data']
@@ -492,7 +494,7 @@ class DiabetesApp:
             self.status_var.set(f"Ошибка: {str(e)[:100]}")
         finally:
             self.stop_loading()
-            
+      
     def plot_all_charts(self):
         # Построение всех графиков
         if not self.ml_models:
@@ -580,7 +582,7 @@ class DiabetesApp:
             output += f"   F1-score:  {optimal['f1_score']:.4f}\n"
         
         self.results_text.insert('1.0', output)
-        
+
     def save_to_database(self):
         
         # Сохранение данных в базу данных (без предсказаний)
@@ -689,7 +691,130 @@ class DiabetesApp:
                 messagebox.showinfo("Успех", f"Результаты сохранены в:\n{file_path}")
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Не удалось экспортировать: {str(e)}")                
-    
+
+    def init_prediction_tab(self):
+        # Создание вкладки с полями для ввода данных пациента
+        frame = self.tabs['prediction']
+        
+        # Заголовок
+        tk.Label(frame, text="🔮 ПРОГНОЗ РИСКА ДИАБЕТА ДЛЯ ПАЦИЕНТА", 
+                font=('Arial', 16, 'bold')).pack(pady=15)
+        
+        # Основные рамки
+        main_frame = tk.Frame(frame)
+        main_frame.pack(fill='both', expand=True, padx=20)
+        
+        left_frame = tk.LabelFrame(main_frame, text="Клинические параметры")
+        left_frame.pack(side='left', fill='both', expand=True)
+        
+        right_frame = tk.LabelFrame(main_frame, text="Результат прогнозирования")
+        right_frame.pack(side='right', fill='both', expand=True)
+        
+        # СЛОВАРЬ ДЛЯ ХРАНЕНИЯ ПОЛЕЙ ВВОДА
+        self.prediction_vars = {}
+        
+        # Признаки
+        features = [
+            ('Pregnancies', 'Количество беременностей'),
+            ('Glucose', 'Уровень глюкозы (мг/дл)'),
+            ('BloodPressure', 'Диастолическое давление (мм рт.ст.)'),
+            ('SkinThickness', 'Толщина кожной складки (мм)'),
+            ('Insulin', 'Уровень инсулина (мкЕд/мл)'),
+            ('BMI', 'Индекс массы тела (кг/м²)'),
+            ('DiabetesPedigreeFunction', 'Наследственность (DPF)'),
+            ('Age', 'Возраст (лет)')
+        ]
+        
+        # СОЗДАНИЕ ПОЛЕЙ ВВОДА
+        for key, label in features:
+            row_frame = tk.Frame(left_frame)
+            row_frame.pack(fill='x', pady=5, padx=10)
+            
+            tk.Label(row_frame, text=label, width=30, anchor='w').pack(side='left')
+            
+            var = tk.StringVar()
+            tk.Entry(row_frame, textvariable=var, width=15).pack(side='left', padx=10)
+            
+            self.prediction_vars[key] = var
+        
+        # МЕТКИ ДЛЯ ОТОБРАЖЕНИЯ РЕЗУЛЬТАТА
+        tk.Label(right_frame, text="Вероятность диабета:", font=('Arial', 12)).pack(pady=(20,5))
+        self.prob_label = tk.Label(right_frame, text="---", font=('Arial', 24, 'bold'))
+        self.prob_label.pack()
+        
+        tk.Label(right_frame, text="Предсказание:", font=('Arial', 12)).pack(pady=(15,5))
+        self.pred_label = tk.Label(right_frame, text="---", font=('Arial', 18, 'bold'))
+        self.pred_label.pack()
+        
+        tk.Label(right_frame, text="Уровень риска:", font=('Arial', 12)).pack(pady=(15,5))
+        self.risk_label = tk.Label(right_frame, text="---", font=('Arial', 14, 'bold'))
+        self.risk_label.pack()
+        
+        tk.Label(right_frame, text="Рекомендации:", font=('Arial', 12, 'bold')).pack(pady=(20,5))
+        self.recommend_label = tk.Label(right_frame, text="---", wraplength=350, font=('Arial', 10))
+        self.recommend_label.pack()
+        
+        # КНОПКА ПРОГНОЗА
+        tk.Button(right_frame, text="🔮 ВЫПОЛНИТЬ ПРОГНОЗ", 
+                command=self.predict_single_patient,
+                bg='#27ae60', fg='white', font=('Arial', 12, 'bold')).pack(pady=20, fill='x')
+    def predict_single_patient(self):
+        # Обработчик нажатия кнопки прогноза
+        
+        # ПРОВЕРКА: обучены ли модели?
+        if self.ml_models is None or self.ml_models.best_model is None:
+            messagebox.showwarning("Предупреждение", 
+                "Сначала обучите модели на вкладке 'Данные'!")
+            return
+        
+        try:
+            # СБОР ДАННЫХ ИЗ ПОЛЕЙ ВВОДА
+            feature_order = ['Pregnancies', 'Glucose', 'BloodPressure', 
+                            'SkinThickness', 'Insulin', 'BMI', 
+                            'DiabetesPedigreeFunction', 'Age']
+            
+            patient_data = []
+            for feature in feature_order:
+                value_str = self.prediction_vars[feature].get()
+                
+                if not value_str.strip():
+                    messagebox.showerror("Ошибка", f"Заполните поле: {feature}")
+                    return
+                
+                try:
+                    value = float(value_str)
+                    if value < 0:
+                        messagebox.showerror("Ошибка", f"Значение {feature} не может быть отрицательным")
+                        return
+                    patient_data.append(value)
+                except ValueError:
+                    messagebox.showerror("Ошибка", f"В поле {feature} должно быть число")
+                    return
+            
+            # ВЫЗОВ МЕТОДА ПРЕДСКАЗАНИЯ ИЗ models.py
+            result = self.ml_models.predict_patient(patient_data)
+            
+            # ОТОБРАЖЕНИЕ РЕЗУЛЬТАТА
+            
+            # Вероятность
+            self.prob_label.config(text=f"{result['probability']*100:.1f}%")
+            
+            # Предсказание
+            if result['prediction'] == 1:
+                self.pred_label.config(text="⚠️ ДИАБЕТ", fg="#e74c3c")
+            else:
+                self.pred_label.config(text="✅ НЕТ ДИАБЕТА", fg="#27ae60")
+            
+            # Уровень риска
+            risk_colors = {"Низкий": "#27ae60", "Средний": "#f39c12", "Высокий": "#e74c3c"}
+            self.risk_label.config(text=result['risk_level'], fg=risk_colors[result['risk_level']])
+            
+            # Рекомендации
+            self.recommend_label.config(text=result['recommendation'])
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось выполнить прогноз:\n{str(e)}")
+
     def run(self):
         # Запуск приложения
         self.root.mainloop()

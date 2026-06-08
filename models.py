@@ -448,6 +448,92 @@ class DiabetesModels:
         self.imputer = joblib.load(f"{path}imputer.pkl")
         
         print(f"Скейлер и импутер загружены")
+    
+    def get_optimal_threshold(self, model_name=None):
+
+        # Нахождение оптимального порога принятия решения
+        
+        if model_name is None:
+            model_name = self.best_model_name
+        
+        y_scores = self.probabilities[model_name]
+        thresholds = np.arange(0.1, 0.9, 0.02)
+        
+        best_f1 = 0
+        best_threshold = 0.5
+        
+        for threshold in thresholds:
+            y_pred = (y_scores >= threshold).astype(int)
+            f1 = f1_score(self.y_test, y_pred, zero_division=0)
+            if f1 > best_f1:
+                best_f1 = f1
+                best_threshold = threshold
+        
+        return {
+            'model': model_name,
+            'optimal_threshold': best_threshold,
+            'f1_score': best_f1
+        }
+
+    def predict_patient(self, patient_data, model_name=None, threshold=None):
+        # ПРЕДСКАЗАНИЕ РИСКА ДИАБЕТА ДЛЯ ОДНОГО ПАЦИЕНТА
+        
+        # Проверка: есть ли обученная модель
+        if self.best_model is None:
+            raise ValueError("Модели не обучены. Сначала вызовите train_all_models()")
+        
+        # Выбор модели
+        if model_name is None:
+            model = self.best_model
+        else:
+            model = self.models.get(model_name)
+        
+        # Масштабирование входных данных
+        input_scaled = self.scaler.transform([patient_data])
+        
+        # Получение вероятности
+        probability = model.predict_proba(input_scaled)[0, 1]
+        
+        # Определение порога
+        if threshold is None:
+            optimal = self.get_optimal_threshold()
+            threshold = optimal['optimal_threshold'] if optimal else 0.5
+        
+        # Принятие решения
+        prediction = 1 if probability >= threshold else 0
+        
+        # Определение уровня риска
+        if probability < 0.3:
+            risk_level = "Низкий"
+            risk_color = "green"
+        elif probability < 0.6:
+            risk_level = "Средний"
+            risk_color = "orange"
+        else:
+            risk_level = "Высокий"
+            risk_color = "red"
+        
+        return {
+            'probability': probability,
+            'prediction': prediction,
+            'threshold_used': threshold,
+            'risk_level': risk_level,
+            'risk_color': risk_color,
+            'model_used': model_name if model_name else self.best_model_name,
+            'recommendation': self._get_recommendation(probability, risk_level)
+        }
+      
+
+    def _get_recommendation(self, probability, risk_level):
+
+        # Генерация текстовой рекомендации на основе уровня риска
+
+        if risk_level == "Низкий":
+            return "Риск диабета низкий. Рекомендуется стандартное профилактическое обследование раз в год."
+        elif risk_level == "Средний":
+            return "Выявлен средний риск диабета. Рекомендуется: контроль уровня глюкозы, коррекция питания, физическая активность, повторное обследование через 3 месяца."
+        else:
+            return "ВЫСОКИЙ РИСК ДИАБЕТА! Необходимо срочно обратиться к эндокринологу, провести расширенное обследование, начать профилактическое лечение."
 
 
 # Функция для быстрого тестирования модуля
