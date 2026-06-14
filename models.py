@@ -455,23 +455,35 @@ class DiabetesModels:
         
         if model_name is None:
             model_name = self.best_model_name
+    
+        if model_name not in self.probabilities:
+            return None
         
         y_scores = self.probabilities[model_name]
-        thresholds = np.arange(0.1, 0.9, 0.02)
         
+        thresholds = np.arange(0.1, 0.9, 0.02)
         best_f1 = 0
         best_threshold = 0.5
+        best_precision = 0
+        best_recall = 0
         
         for threshold in thresholds:
             y_pred = (y_scores >= threshold).astype(int)
+            precision = precision_score(self.y_test, y_pred, zero_division=0)
+            recall = recall_score(self.y_test, y_pred, zero_division=0)
             f1 = f1_score(self.y_test, y_pred, zero_division=0)
+            
             if f1 > best_f1:
                 best_f1 = f1
                 best_threshold = threshold
+                best_precision = precision
+                best_recall = recall
         
         return {
             'model': model_name,
             'optimal_threshold': best_threshold,
+            'precision': best_precision,
+            'recall': best_recall,
             'f1_score': best_f1
         }
 
@@ -588,8 +600,8 @@ def test_models():
         print("="*50)
         print(f"Модель: {optimal['model']}")
         print(f"Порог: {optimal['optimal_threshold']:.3f}")
-        print(f"Precision: {optimal['precision']:.4f}")
-        print(f"Recall: {optimal['recall']:.4f}")
+        # print(f"Precision: {optimal['precision']:.4f}")
+        # print(f"Recall: {optimal['recall']:.4f}")
         print(f"F1-score: {optimal['f1_score']:.4f}")
     
     # Пример предсказания для нового пациента
@@ -598,16 +610,7 @@ def test_models():
     print("="*50)
     
     # Новый пациент
-    new_patient = {
-        'Pregnancies': 2,
-        'Glucose': 120,
-        'BloodPressure': 70,
-        'SkinThickness': 25,
-        'Insulin': 80,
-        'BMI': 28.5,
-        'DiabetesPedigreeFunction': 0.5,
-        'Age': 45
-    }
+    new_patient = [2, 120, 70, 25, 80, 28.5, 0.5, 45]
     
     prediction = diabetes_models.predict_patient(new_patient)
     print(f"Вероятность диабета: {prediction['probability']:.2%}")
